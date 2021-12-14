@@ -10,6 +10,7 @@ class Calculator:
         self.seq = []
         self.cur_time = {}
         self.cur_page = {}
+        self.queue = []
         # self.algorithms = {'opt': self.__opt, 'fifo': self.__fifo}
         # self.sequence = {'global': {'opt': [], 'fifo': []},
         #                  'local':  {'opt': [], 'fifo': []}}
@@ -78,6 +79,29 @@ class Calculator:
                 except:
                     continue
                 self.seq.append(cur)
+                print(cur)
+                if cur not in self.cur_page:
+                    if len(self.cur_page) == 10:
+                        m = self.queue.pop(0)
+                        print('del ', m)
+                        page = self.cur_page[m]
+                        del self.cur_page[m]
+                        self.cur_page[cur] = page
+                        self.queue.append(cur)
+                    else:
+                        self.cur_page[cur] = i
+                        self.queue.append(cur)
+                        i = len(self.cur_page) + 1
+                else:
+                    if len(self.cur_page) == 10:
+                        self.queue.remove(cur)
+                        self.queue.append(cur)
+                    else:
+                        i = len(self.cur_page) + 1
+                print([pair for pair in sorted(self.cur_page.items(), key=lambda pair: pair[1])])
+                print(self.queue)
+                self.result.append([pair[0] for pair in sorted(self.cur_page.items(), key=lambda pair: pair[1])])
+
 
 
     # def __start(self, mode, alg):
@@ -139,7 +163,7 @@ class Calculator:
 
     def calculate(self):
         self.__preparations()
-        self.opt('global', 'opt')
+        self.fifo('global', 'fifo')
         # self.__start('global', 'opt')
         # self.__start('local', 'fifo')
 
