@@ -1,4 +1,6 @@
 import copy
+import pandas as pd
+import numpy as np
 
 
 class Calculator:
@@ -7,20 +9,19 @@ class Calculator:
         self.people = ['Ильин Станислав Павлович',
                        'Карманов Владислав Игоревич',
                        'Карцева Арина Олеговна']
-        self.seq = []
-        self.cur_time = {}
-        self.cur_page = {}
-        self.queue = []
-        # self.algorithms = {'opt': self.__opt, 'fifo': self.__fifo}
-        # self.sequence = {'global': {'opt': [], 'fifo': []},
-        #                  'local':  {'opt': [], 'fifo': []}}
-        # self.pages = {'global': {'opt': [], 'fifo': []},
-        #               'local':  {'opt': [], 'fifo': []}}
+        self.algorithms = {'opt': self.__opt, 'fifo': self.__fifo}
+        self.opt_time = {'global': {}, 'local': {}}
+        self.fifo_queue = {'global': [], 'local': []}
+        self.seq = {'global': {'opt': [], 'fifo': []},
+                    'local':  {'opt': [], 'fifo': []}}
+        self.cur_page = {'global': {'opt': {}, 'fifo': {}},
+                         'local':  {'opt': {}, 'fifo': {}}}
         self.digits = {'global': {'opt': [], 'fifo': []},
                        'local': {'opt': [], 'fifo': []}}
-        # self.accuracy = {'global': {'opt': [], 'fifo': []},
-        #                  'local': {'opt': [], 'fifo': []}}
-        self.result = []
+        self.accuracy = {'global': {'opt': [], 'fifo': []},
+                         'local': {'opt': [], 'fifo': []}}
+        self.result = {'global': {'opt': [], 'fifo': []},
+                       'local': {'opt': [], 'fifo': []}}
         self.n = []
 
     def __preparations(self):
@@ -41,36 +42,7 @@ class Calculator:
         self.digits['local']['fifo'] = copy.deepcopy(self.digits['global']['opt'])
         self.people = [list(self.people[i]) for i in range(len(self.people))]
 
-    def opt(self, mode, alg):
-        i = 1
-        while self.digits[mode][alg] != [[], [], []]:
-            for index in range(len(self.digits[mode][alg])):
-                try:
-                    cur = str(index+1) + '-' + str(self.digits[mode][alg][index].pop(0))
-                except:
-                    continue
-                self.seq.append(cur)
-                for key in self.cur_time:
-                    self.cur_time[key] += 1
-                if cur not in self.cur_page:
-                    if len(self.cur_page) == 10:
-                        m = max(self.cur_time.items(), key=lambda pair: pair[1])
-                        page = self.cur_page[m[0]]
-                        del self.cur_page[m[0]], self.cur_time[m[0]]
-                        self.cur_page[cur] = page
-                        self.cur_time[cur] = 0
-
-                    else:
-                        self.cur_page[cur] = i
-                        self.cur_time[cur] = 0
-                        i = len(self.cur_page) + 1
-                else:
-                    self.cur_time[cur] = 0
-                    if len(self.cur_page) < 10:
-                        i = len(self.cur_page) + 1
-                self.result.append([pair[0] for pair in sorted(self.cur_page.items(), key=lambda pair: pair[1])])
-
-    def fifo(self, mode, alg):
+    def __start(self, mode, alg):
         i = 1
         while self.digits[mode][alg] != [[], [], []]:
             for index in range(len(self.digits[mode][alg])):
@@ -78,97 +50,87 @@ class Calculator:
                     cur = str(index + 1) + '-' + str(self.digits[mode][alg][index].pop(0))
                 except:
                     continue
-                self.seq.append(cur)
-                print(cur)
-                if cur not in self.cur_page:
-                    if len(self.cur_page) == 10:
-                        m = self.queue.pop(0)
-                        print('del ', m)
-                        page = self.cur_page[m]
-                        del self.cur_page[m]
-                        self.cur_page[cur] = page
-                        self.queue.append(cur)
-                    else:
-                        self.cur_page[cur] = i
-                        self.queue.append(cur)
-                        i = len(self.cur_page) + 1
-                else:
-                    if len(self.cur_page) == 10:
-                        self.queue.remove(cur)
-                        self.queue.append(cur)
-                    else:
-                        i = len(self.cur_page) + 1
-                print([pair for pair in sorted(self.cur_page.items(), key=lambda pair: pair[1])])
-                print(self.queue)
-                self.result.append([pair[0] for pair in sorted(self.cur_page.items(), key=lambda pair: pair[1])])
+                self.seq[mode][alg].append(cur)
+                i = self.algorithms[alg](mode, alg, cur, i)
 
+    def __opt(self, mode, alg, cur, i):
+        opt_time = self.opt_time[mode]
+        cur_page = self.cur_page[mode][alg]
+        acc = self.accuracy[mode][alg]
+        for key in opt_time:
+            opt_time[key] += 1
+        if cur not in cur_page:
+            if len(cur_page) == 10:
+                m = max(opt_time.items(), key=lambda pair: pair[1])
+                page = cur_page[m[0]]
+                del cur_page[m[0]], opt_time[m[0]]
+                cur_page[cur] = page
+                opt_time[cur] = 0
+                acc.append(False)
+            else:
+                cur_page[cur] = i
+                opt_time[cur] = 0
+                i = len(cur_page) + 1
+                acc.append(None)
+        else:
+            opt_time[cur] = 0
+            acc.append(True)
+            if len(cur_page) < 10:
+                i = len(cur_page) + 1
+        self.result[mode][alg].append([pair[0] for pair in sorted(cur_page.items(), key=lambda pair: pair[1])])
+        return i
 
-
-    # def __start(self, mode, alg):
-    #     i = 0
-    #     while self.digits[mode][alg] != [[], [], []]:
-    #         for index in range(3):
-    #             try:
-    #                 cur = '{}-{}'.format(index + 1, self.digits[mode][alg][index].pop(0))
-    #             except:
-    #                 continue
-    #             if alg == 'opt':
-    #                 self.pages[mode][alg].append({})
-    #             else:
-    #                 self.pages[mode][alg].append([])
-    #             self.sequence[mode][alg].append(cur)
-    #             if i > 0:
-    #                 self.pages[mode][alg][i] = self.pages[mode][alg][i - 1]
-    #             i = self.algorithms[alg](mode, i, cur)
-
-    # def __opt(self, mode, i, cur):
-    #     for key in self.pages[mode]['opt'][i]:
-    #         self.pages[mode]['opt'][i][key] += 1
-    #     if cur not in self.pages[mode]['opt'][i]:
-    #         if len(self.pages[mode]['opt'][i]) == 10:
-    #             self.accuracy[mode]['opt'].append(False)
-    #             if mode == 'global':
-    #                 m = max(self.pages[mode]['opt'][i].items(), key=lambda page: page[1])
-    #                 del self.pages[mode]['opt'][i][m[0]]
-    #             else:
-    #                 proc = list(filter(lambda kv: kv[0][0] == cur[0], self.pages[mode]['opt'][i].items()))
-    #                 m = max(proc, key=lambda pair: pair[1])
-    #                 del self.pages[mode]['opt'][i][m[0]]
-    #         else:
-    #             self.accuracy[mode]['opt'].append(None)
-    #     else:
-    #         self.accuracy[mode]['opt'].append(True)
-    #     self.pages[mode]['opt'][i][cur] = 0
-    #     self.[]
-    #     print(self.pages[mode]['opt'][i])
-    #     return i + 1
-
-    # def __fifo(self, mode, i, cur):
-    #     if cur not in self.pages[mode]['fifo'][i]:
-    #         if len(self.pages[mode]['fifo'][i]) == 10:
-    #             self.accuracy[mode]['fifo'].append(False)
-    #             if mode == 'global':
-    #                 self.pages[mode]['fifo'][i].pop(0)
-    #             else:
-    #                 #TODO сделать изменение страниц на месте, а не путем удаления первого вхождения и добавления в конец нового элемента
-    #                 proc = list(filter(lambda x: x[0] == cur[0], self.pages[mode]['fifo'][i]))
-    #                 m = proc[0]
-    #                 self.pages[mode]['fifo'][i].remove(m)
-    #         else:
-    #             self.accuracy[mode]['fifo'].append(None)
-    #         self.pages[mode]['fifo'][i].append(cur)
-    #     else:
-    #         self.accuracy[mode]['fifo'].append(True)
-    #     return i + 1
+    def __fifo(self, mode, alg, cur, i):
+        fifo_queue = self.fifo_queue[mode]
+        cur_page = self.cur_page[mode][alg]
+        acc = self.accuracy[mode][alg]
+        if cur not in cur_page:
+            if len(cur_page) == 10:
+                m = fifo_queue.pop(0)
+                page = cur_page[m]
+                del cur_page[m]
+                cur_page[cur] = page
+                fifo_queue.append(cur)
+                acc.append(False)
+            else:
+                cur_page[cur] = i
+                fifo_queue.append(cur)
+                i = len(cur_page) + 1
+                acc.append(None)
+        else:
+            acc.append(True)
+            if len(cur_page) == 10:
+                fifo_queue.remove(cur)
+                fifo_queue.append(cur)
+            else:
+                i = len(cur_page) + 1
+        self.result[mode][alg].append([pair[0] for pair in sorted(cur_page.items(), key=lambda pair: pair[1])])
+        return i
 
     def calculate(self):
         self.__preparations()
-        self.fifo('global', 'fifo')
-        # self.__start('global', 'opt')
-        # self.__start('local', 'fifo')
+        self.__start('global', 'opt')
+        self.__start('global', 'fifo')
 
 
 calc = Calculator()
 calc.calculate()
-for res in calc.result:
-    print(res)
+for alg in ['opt', 'fifo']:
+    for res in calc.result['global'][alg]:
+        while len(res) < 10:
+            res.append(None)
+task1 = []
+for alg in ['opt', 'fifo']:
+    seq = [[res] for res in calc.seq['global'][alg]]
+    pages = calc.result['global'][alg]
+    accuracy = calc.accuracy['global'][alg]
+    for i in range(len(seq)):
+        seq[i] += pages[i]
+        seq[i].append(accuracy[i])
+    data = np.array(seq).T
+    index = ['Очередь'] + [i+1 for i in range(10)] + ['Попадание']
+    task1.append(pd.DataFrame(data, index=index,
+                             columns=[i+1 for i in range(len(calc.result['global'][alg]))]))
+with pd.ExcelWriter('output.xlsx') as writer:
+    task1[0].to_excel(writer, sheet_name='Optimal')
+    task1[1].to_excel(writer, sheet_name='FIFO')
